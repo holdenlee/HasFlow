@@ -136,15 +136,7 @@ instance Algebra.Ring.C T where
     (T v1 s1) * (T v2 s2) = T (v1 * v2) (s1 `tryMul` s2) 
     fromInteger n = T (Algebra.Ring.fromInteger n) (Just [EInt 1])
 
---data T = Ref String | Num Float | Plus T T | Mul T T
-
-{-
-instance Show T where
-    show = \case
-           Ref str -> str
-           Num x -> show x
-           Plus t1 t2 -> printf "(%s+%s)" (show t1) (show t2)
--}
+-- # TensorFlow graph and monad
 
 data TGraph next = 
     SetDefaultInits String next
@@ -158,27 +150,15 @@ data TGraph next =
     | Get String (T -> next)
     | Save T (T -> next) deriving Functor
 
-type TF = Free TGraph 
-
-{-
-instance Functor TGraph where
-    fmap f = \case
-             SetDefaultInits str next -> SetDefaultInits str (f next)
-             InitVar str li def g -> InitVar str li def (f . g)
-             InitVarWithDefault str li g -> InitVarWithDefault str li (f.g)
-             AddScope str next -> AddScope str (f next)
-             ExitScope next -> ExitScope (f next)
-             Get str g -> Get str (f . g)
-             Save t g -> Save t (f . g)
--}
+type Flow = Free TGraph 
 
 setDefaultInits str = liftF (SetDefaultInits str ())
 
-initVar :: String -> [Int] -> String -> TF T
+initVar :: String -> [Int] -> String -> Flow T
 initVar str li f =  Free $ InitVar str li f Pure
 --liftF (InitVar str li f id)
 
-initVarWithDefault :: String -> [Int] -> TF T
+initVarWithDefault :: String -> [Int] -> Flow T
 initVarWithDefault str li =  Free $ InitVarWithDefault str li Pure
 --liftF (InitVarWithDefault str id)
 
@@ -190,7 +170,7 @@ save t = liftF (Save t id)
 addScope str = liftF (AddScope str ())
 exitScope = liftF (ExitScope ())
 
-scope :: String -> TF a -> TF a
+scope :: String -> Flow a -> Flow a
 scope str tf = do
 --  cur <- getScope
   addScope str
@@ -199,8 +179,10 @@ scope str tf = do
   exitScope
   return x
 
---compile :: TF T -> String
+--compile :: Flow T -> String
 --compile 
+
+-- # Compilers
 
 data ProgramData = ProgramData {_indent :: Int, _defaultInits :: String, _scopeList :: [String], _vars :: S.Set String, _curIndex :: Int}
 
@@ -213,11 +195,11 @@ makeLenses ''ProgramData
 
 withIndent pd str = (replicate (4*(pd ^. indent)) ' ')++str++"\n"
 
-compile :: TF T -> String
+compile :: Flow T -> String
 compile = compile' (ProgramData {_indent = 0, _defaultInits = "", _scopeList = [], _vars = S.empty, _curIndex = 0})
 --no scope right now
 
-compile' :: ProgramData -> TF T -> String
+compile' :: ProgramData -> Flow T -> String
 compile' pd = \case
               Free (SetDefaultInits str next) -> compile' (pd & defaultInits .~ str) next
               Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(%s, %s, %s)" str str (show dims) f)) ++ (compile' (pd & vars %~ S.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str)) 
@@ -233,7 +215,7 @@ compile' pd = \case
                      (nextf $ T (Ref curVar) Nothing))
               Pure t -> (withIndent pd (printf "%s = %s" (varNames!!(pd ^. curIndex)) (show t))) -- ++ compile' (pd & vars %~ S.insert (varNames!!(pd ^. curIndex)) & curIndex %~ (+1))
 
-test :: TF T
+test :: Flow T
 test = do
   setDefaultInits "default"
   (a,b) <- scope "foo" $ do
@@ -246,3 +228,15 @@ test = do
   return (e + d)
 
 do_test = putStrLn (compile test)
+
+-- # Monadic functions
+
+repeatM :: (Monad m) -> Int -> (a -> m a) -> a -> m a
+repeatM i f x = if i==0 
+                then pure x
+                else f x >>= repeatM (i-1) f
+
+stack :: String -> Int -> (a -> Flow a) -> a -> Flow a
+stack str n f x = repeatM n (\y -> scope str $ f y) x
+
+--scanM
