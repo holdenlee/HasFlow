@@ -9,15 +9,39 @@
  -XLambdaCase
  -XTemplateHaskell
  -XFlexibleContexts
+ -XDeriveFunctor
 #-}
 
 module HasFlow where
+
+import Prelude hiding ((+), (*), (-))
+import Algebra.Additive as Additive
+import Algebra.Ring
 import Control.Monad
 import Control.Monad.Free
 import Control.Lens
 import Text.Printf
 import qualified Data.Set as S
 import Data.List
+import Data.Functor
+import Control.Applicative
+
+-- # TYPES
+
+-- ## Expressions
+
+data Expr = EInt Integer | ERef String | EAdd Expr Expr | EMul Expr Expr | ENeg Expr
+
+instance Additive.C Expr where
+    zero = EInt 0
+    (+) = EAdd
+    negate = ENeg
+
+instance Algebra.Ring.C Expr where
+    (*) = EMul
+    fromInteger = EInt
+
+type Shape = [Expr]
 
 data T = Ref String | Num Float | Plus T T
 
@@ -34,12 +58,14 @@ data TGraph next =
 --    | GetScope String (String -> next) 
 --    | SetScope String next
     | AddScope String next
+--    | NewScope next
     | ExitScope next
     | Get String (T -> next)
-    | Save T (T -> next)
+    | Save T (T -> next) deriving Functor
 
 type TF = Free TGraph 
 
+{-
 instance Functor TGraph where
     fmap f = \case
              SetDefaultInits str next -> SetDefaultInits str (f next)
@@ -49,6 +75,7 @@ instance Functor TGraph where
              ExitScope next -> ExitScope (f next)
              Get str g -> Get str (f . g)
              Save t g -> Save t (f . g)
+-}
 
 setDefaultInits str = liftF (SetDefaultInits str ())
 
