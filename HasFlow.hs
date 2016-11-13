@@ -24,15 +24,15 @@ import Data.Maybe
 import Text.Printf
 import qualified Data.Set as S
 import Data.List
+import qualified Data.Map as M
 import Data.Functor
 import Control.Applicative
 
--- # TYPES
-
--- ## Expressions (for dimensions)
+-- |
+-- = TYPES
+-- == Expressions (for dimensions)
 
 data Expr = EInt Integer | ERef String | EAdd Expr Expr | EMul Expr Expr | EAdds [Expr] | EMuls [Expr] deriving (Show, Eq)
---  | ENeg Expr
 
 instance Additive.C Expr where
     zero = EInt 0
@@ -82,14 +82,13 @@ normExpr e = case e of
                    in EAdds $ map (EMuls . simplifyMonomial) $ sequence $ map eaddsToList es
                     --simplify products
 
--- ## Shape
+-- |
+-- == Shape
 
 type Shape = Maybe [Expr]
 
--- data Python = PI Int | PF Float | PCode String
---add lists
-
--- ## Tensors
+-- |
+-- == Tensors
 data TVal = F Float | L [TVal] | Ref String | Add TVal TVal | Mul TVal TVal
 -- I Int
 
@@ -136,7 +135,12 @@ instance Algebra.Ring.C T where
     (T v1 s1) * (T v2 s2) = T (v1 * v2) (s1 `tryMul` s2) 
     fromInteger n = T (Algebra.Ring.fromInteger n) (Just [EInt 1])
 
--- # TensorFlow graph and monad
+-- |
+-- = TensorFlow graph and monad
+
+data Py = PI Int | PF Float | PCode String | PL [Py] --less clunky way to do this?
+
+type PyArgs = M.Map String Py
 
 data TGraph next = 
     SetDefaultInits String next
@@ -148,7 +152,16 @@ data TGraph next =
 --    | NewScope next
     | ExitScope next
     | Get String (T -> next)
-    | Save T (T -> next) deriving Functor
+    | Save T (T -> next) 
+--    | Fun String (T -> next)
+    | Fun (T -> String) (T -> next)
+      -- ^ represents a function `T -> T`
+    | Fun2 (T -> T -> String) PyArgs (T -> next)
+      -- ^ represents a function `T -> T -> T`
+      deriving Functor
+
+--    | Fun String T (T -> (String, T)) (T -> next)
+
 
 type Flow = Free TGraph 
 
@@ -179,10 +192,26 @@ scope str tf = do
   exitScope
   return x
 
+-- |
+-- == Making functions
+
+-- there should really be something like ([Shape] -> Shape) in the middle
+makeFun :: String -> PyArgs -> [T] -> Flow T
+makeFun str = undefined
+--ex. conv2d($1, $2, $stride, **): $1, 2 are from args, $stride is lookup in pyargs, ** is rest of stuff in dictionary.
+
+makeFun1 :: String -> PyArgs -> T -> Flow T
+makeFun1 str args x = makeFun str args [x]
+
+sigmoid :: T -> Flow T
+sigmoid = makeFun1 "tf.sigmoid($1)" (M.empty)
+--define a whole host this way.
+
 --compile :: Flow T -> String
 --compile 
 
--- # Compilers
+-- |
+-- = Compilers
 
 data ProgramData = ProgramData {_indent :: Int, _defaultInits :: String, _scopeList :: [String], _vars :: S.Set String, _curIndex :: Int}
 
@@ -231,7 +260,7 @@ do_test = putStrLn (compile test)
 
 -- # Monadic functions
 
-repeatM :: (Monad m) -> Int -> (a -> m a) -> a -> m a
+repeatM :: (Monad m) => Int -> (a -> m a) -> a -> m a
 repeatM i f x = if i==0 
                 then pure x
                 else f x >>= repeatM (i-1) f
