@@ -30,7 +30,7 @@ import Control.Applicative
 
 -- ## Expressions
 
-data Expr = EInt Integer | ERef String | EAdd Expr Expr | EMul Expr Expr | ENeg Expr
+data Expr = EInt Integer | ERef String | EAdd Expr Expr | EMul Expr Expr | ENeg Expr deriving Show
 
 instance Additive.C Expr where
     zero = EInt 0
