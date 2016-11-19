@@ -90,6 +90,7 @@ type Shape = Maybe [Expr]
 -- |
 -- == Tensors
 data TVal = F Float | L [TVal] | Ref String | Add TVal TVal | Mul TVal TVal
+          --   | Fun1 String 
 -- I Int
 
 instance Show TVal where
