@@ -39,7 +39,7 @@ import Functions
 -- |
 -- = Compilers
 
-data ProgramData = ProgramData {_indent :: Int, _defaultInits :: String, _scopeList :: [String], _vars :: S.Set String, _curIndex :: Int}
+data ProgramData = ProgramData {_defaultInits :: String, _scopeList :: [String], _vars :: S.Set String, _curIndex :: Int}
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
@@ -55,10 +55,12 @@ varNames = concat (map (listpow alphabet) [1..]) & map ('_':)
 
 makeLenses ''ProgramData
 
-withIndent pd str = (replicate (4*(pd ^. indent)) ' ')++str++"\n"
+getIndent pd = 4*(pd ^. scopeList)
+
+withIndent pd str = (replicate (getIndent pd) ' ')++str++"\n"
 
 compile :: Flow T -> String
-compile = compile' (ProgramData {_indent = 0, _defaultInits = "", _scopeList = [], _vars = S.empty, _curIndex = 0})
+compile = compile' (ProgramData {_defaultInits = "", _scopeList = [], _vars = S.empty, _curIndex = 0})
 --no scope right now
 
 compile' :: ProgramData -> Flow T -> String
@@ -67,8 +69,8 @@ compile' pd = \case
               Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(%s, %s, %s)" str str (show dims) f)) ++ (compile' (pd & vars %~ S.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str)) 
                                                  (nextf $ T (Ref str) Nothing))
               Free (InitVarWithDefault str dims nextf) -> compile' pd (Free $ InitVar str dims (pd ^. defaultInits) nextf)
-              Free (AddScope str next) -> (withIndent pd (printf "with tf.variable_scope(\"%s\")" str))++(compile' (pd & indent %~ (+1)  & scopeList %~ (++[str])) next)
-              Free (ExitScope next) -> compile' (pd & indent %~ (\x -> x - 1)) next
+              Free (AddScope str next) -> (withIndent pd (printf "with tf.variable_scope(\"%s\")" str))++(compile' (pd & scopeList %~ (++[str])) next)
+              Free (ExitScope next) -> compile' (pd & scopeList %~ init) next
               Free (Get str nextf) -> compile' pd 
                                       (nextf $ T (Ref str) Nothing)
               Free (Save t nextf) -> 
