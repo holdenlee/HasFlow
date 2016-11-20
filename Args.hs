@@ -69,11 +69,9 @@ instance Argable Int where
 instance Argable Float where
     toArg = PF
 
-
+-- https://mail.haskell.org/pipermail/ghc-devs/2014-July/005830.html
 instance {-# OVERLAPPING #-} Argable String where
     toArg = PCode
-
--- :( this runs into OverlappingInstances problems
 
 instance {-# OVERLAPPABLE #-} (Argable a) => (Argable [a]) where
     toArg li = PL (map toArg li)

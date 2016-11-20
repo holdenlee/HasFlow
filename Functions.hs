@@ -47,11 +47,42 @@ make_ f a = f a M.empty
 makeFun_ :: String -> ([Expr] -> Shape) -> T -> T
 makeFun_ = make_ makeFun
 
+makeFun2 :: String -> PyArgs -> ([Expr] -> [Expr] -> Shape) -> T -> T -> T
+makeFun2 str args f x y = T (TFun str [val x, val y] args (\[x,y] -> f x y)) 
+                          (do 
+                            x' <- shape x
+                            y' <- shape y
+                            f x' y')
+
+makeFun2_ :: String -> ([Expr] -> [Expr] -> Shape) -> T -> T -> T
+makeFun2_ a = makeFun2 a M.empty
+
 --ex. conv2d($1, $2, $stride, **): $1, 2 are from args, $stride is lookup in pyargs, ** is rest of stuff in dictionary.
+
+--define a whole host this way.
 
 sigmoid :: T -> T
 sigmoid = makeFun_ "sigmoid" Just 
---define a whole host this way.
+
+softmax :: T -> T
+softmax = makeFun_ "softmax" Just
+
+tanh :: T -> T
+tanh = makeFun_ "tanh" Just
+
+concatenate :: Int -> [T] -> T
+concatenate n ts = T (TFun "concat" (map val ts) (M.fromList [("axis", p (1::Int))]) (Just . head)) Nothing
+--fix dims! 
+-- TFun String [TVal] PyArgs ([Shape] -> Maybe Shape)
+
+zeros :: (Argable a) => a -> T
+zeros a =  T (TFun "zeros" [] (M.fromList [("shape", p a)]) (Just . head)) Nothing
+
+(.!) :: (Argable a) => T -> a -> T
+(.!) x a =  T (TFun "get" [val x] (M.fromList [("index", p a)]) (Just . head)) Nothing
+
+(.*) :: T -> T -> T
+(.*) = makeFun2_ ".*" (\x y -> if x==y then Just x else Nothing)
 
 -- |
 -- == Monadic functions
@@ -72,3 +103,8 @@ stacks str n f = chainM (map (\i -> scope (str++(show i)) . f) [1..n])
 
 --scanM
 
+chooseLeft :: Maybe a -> Maybe a -> Maybe a
+chooseLeft a b = case (a,b) of
+                   (Just l, _) -> Just l
+                   (_, Just r) -> Just r
+                   _ -> Nothing

@@ -22,13 +22,17 @@ import Control.Monad.Free
 import Control.Lens
 import Data.Maybe
 import Text.Printf
+import Text.Regex
+import Data.Char
 import qualified Data.Set as S
+import Data.String.Utils
 import Data.List
 import qualified Data.Map as M
 import Data.Functor
 import Control.Applicative
 
 import MonadUtilities
+import Utilities
 import Expr
 import Tensor
 import Graph
@@ -76,6 +80,64 @@ compile' pd = \case
                                       (nextf $ T (Ref str) Nothing)
               Free (Save t nextf) -> 
                   let curVar = varNames !! (pd ^. curIndex)
-                  in (withIndent pd (printf "%s = %s" curVar (show t))) ++ (compile' (pd & vars %~ M.insert curVar t & curIndex %~ (+1)) 
+                  in (withIndent pd (printf "%s = %s" curVar (compileT t))) ++ (compile' (pd & vars %~ M.insert curVar t & curIndex %~ (+1))
                      (nextf $ T (Ref curVar) Nothing))
               Pure t -> (withIndent pd (printf "%s = %s" (varNames!!(pd ^. curIndex)) (show t))) -- ++ compile' (pd & vars %~ S.insert (varNames!!(pd ^. curIndex)) & curIndex %~ (+1))
+
+compileT = compileTV . val
+
+compileTV :: TVal -> String
+compileTV = \case 
+                        F x -> show x
+                        L li -> printf "[%s]" $ intercalate "," (map compileTV li)
+                        Ref str -> str
+                        Add t1 t2 -> printf "(%s + %s)" (compileTV t1) (compileTV t2) 
+                        Mul t1 t2 -> printf "tf.matmul(%s, %s)" (compileTV t1) (compileTV t2) 
+                        TFun s li args _ -> 
+                            case M.lookup s funMap of
+                              Just (str, defArgs) -> entryToF (str, defArgs) li args 
+                              _ -> printf "(ERROR: FUNCTION %s NOT FOUND)" s
+-- entryToF :: (String, PyArgs) -> [T] -> PyArgs -> String
+
+--printf "%s(%s)" s (intercalate "," $ map compileTV li)
+{-
+data TVal = F Float | L [TVal] | Ref String | Add TVal TVal | Mul TVal TVal
+          | TFun String [TVal] PyArgs ([[Expr]] -> Shape)
+-}
+
+{-
+replaces :: [(String, String)] -> String -> String
+replaces = foldIterate (uncurry replace) 
+-}
+--foldl1 (\s1 (x,y) -> replace x y s1)
+
+repeatUntilNothing :: (a -> Maybe a) -> a -> a
+repeatUntilNothing f x = case f x of
+                           Nothing -> x
+                           Just y -> repeatUntilNothing f y
+
+entryToF :: (String, PyArgs) -> [TVal] -> PyArgs -> String
+entryToF (str, defArgs) li args = repeatUntilNothing
+                          (\st -> do
+                             (beg, match, after, _) <- matchRegexAll (mkRegex "\\$([a-zA-z]+|[0-9]+|\\$)") st
+                             let m = match!!1
+                             let ms = tail match
+                             repl <-
+                                 if (isAlpha m) 
+                                 then fmap show $ chooseLeft (M.lookup (tail match) args) (M.lookup (tail match) defArgs)
+                                 else if (isDigit m)
+                                      then do
+                                        t <- li `mindex` ((read ms) - 1)
+                                        return (show t)
+                                      else return (printf "(%s)" $ intercalate "," (map compileTV li))
+                             return (beg++repl++after)) str
+
+funMap :: M.Map String (String, PyArgs)
+funMap = M.fromList
+         [("concat", ("tf.concat($axis, $$)", M.fromList [("axis", p (1::Int))])),
+          ("get", ("$1[$index]", M.empty)),
+          ("sigmoid", ("tf.sigmoid($1)", M.empty)),
+          ("softmax", ("tf.softmax($1)", M.empty)),
+          ("tanh", ("tf.tanh($1)", M.empty)),
+          ("zeros", ("zeros($shape)", M.empty))]
+          
