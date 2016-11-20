@@ -38,8 +38,8 @@ import Args
 
 data TGraph next = 
     SetDefaultInits String next
-    | InitVar String [Int] String (T -> next)
-    | InitVarWithDefault String [Int] (T -> next)
+    | InitVar String Shape String (T -> next)
+    | InitVarWithDefault String Shape (T -> next)
 --    | GetScope String (String -> next) 
 --    | SetScope String next
     | AddScope String next
@@ -56,12 +56,12 @@ type Flow = Free TGraph
 
 setDefaultInits str = liftF (SetDefaultInits str ())
 
-initVar :: String -> [Int] -> String -> Flow T
-initVar str li f =  Free $ InitVar str li f Pure
+initVar :: (Shapable a) => String -> a -> String -> Flow T
+initVar str li f =  Free $ InitVar str (s li) f Pure
 --liftF (InitVar str li f id)
 
-initVarWithDefault :: String -> [Int] -> Flow T
-initVarWithDefault str li =  Free $ InitVarWithDefault str li Pure
+initVarWithDefault :: (Shapable a) => String -> a -> Flow T
+initVarWithDefault str li =  Free $ InitVarWithDefault str (s li) Pure
 --liftF (InitVarWithDefault str id)
 
 get str = liftF (Get str id)
@@ -80,3 +80,5 @@ scope str tf = do
 --  setScope cur
   exitScope
   return x
+
+--set default init within scope

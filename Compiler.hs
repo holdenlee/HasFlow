@@ -37,9 +37,9 @@ import Functions
 --put this in HasFlow.Compilers.Base
 
 -- |
--- = Compilers
+-- = Compiler
 
-data ProgramData = ProgramData {_defaultInits :: String, _scopeList :: [String], _vars :: S.Set String, _curIndex :: Int}
+data ProgramData = ProgramData {_defaultInits :: String, _scopeList :: [String], _vars :: M.Map String T, _curIndex :: Int}
 
 alphabet = "abcdefghijklmnopqrstuvwxyz"
 
@@ -60,21 +60,21 @@ getIndent pd = 4*(length (pd ^. scopeList))
 withIndent pd str = (replicate (getIndent pd) ' ')++str++"\n"
 
 compile :: Flow T -> String
-compile = compile' (ProgramData {_defaultInits = "", _scopeList = [], _vars = S.empty, _curIndex = 0})
+compile = compile' (ProgramData {_defaultInits = "", _scopeList = [], _vars = M.empty, _curIndex = 0})
 --no scope right now
 
 compile' :: ProgramData -> Flow T -> String
 compile' pd = \case
               Free (SetDefaultInits str next) -> compile' (pd & defaultInits .~ str) next
-              Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(%s, %s, %s)" str str (show dims) f)) ++ (compile' (pd & vars %~ S.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str)) 
+              Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(\"%s\", %s, %s)" str str (showShape dims) f)) ++ (compile' (pd & vars %~ M.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str) (T (Ref str) dims)) 
                                                  (nextf $ T (Ref str) Nothing))
               Free (InitVarWithDefault str dims nextf) -> compile' pd (Free $ InitVar str dims (pd ^. defaultInits) nextf)
-              Free (AddScope str next) -> (withIndent pd (printf "with tf.variable_scope(\"%s\")" str))++(compile' (pd & scopeList %~ (++[str])) next)
+              Free (AddScope str next) -> (withIndent pd (printf "with tf.variable_scope(\"%s\"):" str))++(compile' (pd & scopeList %~ (++[str])) next)
               Free (ExitScope next) -> compile' (pd & scopeList %~ init) next
               Free (Get str nextf) -> compile' pd 
                                       (nextf $ T (Ref str) Nothing)
               Free (Save t nextf) -> 
                   let curVar = varNames !! (pd ^. curIndex)
-                  in (withIndent pd (printf "%s = %s" curVar (show t))) ++ (compile' (pd & vars %~ S.insert curVar & curIndex %~ (+1)) 
+                  in (withIndent pd (printf "%s = %s" curVar (show t))) ++ (compile' (pd & vars %~ M.insert curVar t & curIndex %~ (+1)) 
                      (nextf $ T (Ref curVar) Nothing))
               Pure t -> (withIndent pd (printf "%s = %s" (varNames!!(pd ^. curIndex)) (show t))) -- ++ compile' (pd & vars %~ S.insert (varNames!!(pd ^. curIndex)) & curIndex %~ (+1))

@@ -39,8 +39,8 @@ test :: Flow T
 test = do
   setDefaultInits "default"
   (a,b) <- scope "foo" $ do
-         a <- initVar "a" [4] "init"
-         b <- initVarWithDefault "b" [4]
+         a <- initVar "a" (4::Int) "init"
+         b <- initVarWithDefault "b" (4::Int)
          return (a, b)  
   c <- save (a + b)
   d <- return (c + c)

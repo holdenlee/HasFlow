@@ -10,6 +10,7 @@
  -XTemplateHaskell
  -XFlexibleContexts
  -XDeriveFunctor
+ -XUndecidableInstances
 #-}
 
 module Expr where
@@ -35,7 +36,16 @@ import MonadUtilities
 -- = TYPES
 -- == Expressions (for dimensions)
 
-data Expr = EInt Integer | ERef String | EAdd Expr Expr | EMul Expr Expr | EAdds [Expr] | EMuls [Expr] deriving (Show, Eq)
+data Expr = EInt Integer | ERef String | EAdd Expr Expr | EMul Expr Expr | EAdds [Expr] | EMuls [Expr] deriving Eq
+
+instance Show Expr where
+    show = \case
+           EInt x -> show x
+           ERef str -> str
+           EAdd e1 e2 -> printf "(%s+%s)" (show e1) (show e2)
+           EMul e1 e2 -> printf "(%s*%s)" (show e1) (show e2)
+           EAdds le -> printf "(%s)" $ intercalate "+" $ map show le
+           EMuls le -> printf "(%s)" $ intercalate "*" $ map show le
 
 instance Additive.C Expr where
     zero = EInt 0
@@ -91,3 +101,46 @@ normExpr e = case e of
 -- == Shape
 
 type Shape = Maybe [Expr]
+
+showShape :: Shape -> String
+showShape = \case
+            Just e -> show e
+            Nothing -> "[]"
+
+class Shapable a where
+    toShape :: a -> Shape
+
+s :: (Shapable a) => a -> Shape
+s = toShape
+
+
+instance Shapable [Int] where
+    toShape x = Just (map (EInt . toInteger) x)
+{-
+instance Shapable [Integer] where
+    toShape x = Just (map EInt x)
+-}
+{-
+instance Integral a => Shapable a where
+    toShape x = Just [EInt $ toInteger x]
+
+instance Integral a => Shapable [a] where
+    toShape x = Just (map (EInt . toInteger) x)
+-}
+--instance Shapable Integer where
+--    toShape x = Just [EInt x]
+
+instance Shapable Int where
+    toShape x = Just [EInt (toInteger x)]
+
+instance Shapable String where
+    toShape x = Just [ERef x]
+
+instance Shapable [String] where
+    toShape x = Just (map ERef x)
+
+instance Shapable () where
+    toShape () = Nothing
+
+instance Shapable Shape where
+    toShape = id
