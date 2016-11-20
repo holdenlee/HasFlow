@@ -54,10 +54,11 @@ data TGraph next =
 
 type Flow = Free TGraph 
 
-setDefaultInits str = liftF (SetDefaultInits str ())
+setDefaultInits :: (Argable str) => str -> Flow ()
+setDefaultInits str = liftF (SetDefaultInits (show $ p str) ())
 
 initVar :: (Shapable a, Argable s) => String -> a -> s -> Flow T
-initVar str li f =  Free $ InitVar str (s li) (a f) Pure
+initVar str li f =  Free $ InitVar str (s li) (p f) Pure
 --liftF (InitVar str li f id)
 
 initVarWithDefault :: (Shapable a) => String -> a -> Flow T
