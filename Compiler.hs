@@ -33,6 +33,7 @@ import Expr
 import Tensor
 import Graph
 import Functions
+import Args
 
 --put this in HasFlow.Compilers.Base
 
@@ -66,9 +67,9 @@ compile = compile' (ProgramData {_defaultInits = "", _scopeList = [], _vars = M.
 compile' :: ProgramData -> Flow T -> String
 compile' pd = \case
               Free (SetDefaultInits str next) -> compile' (pd & defaultInits .~ str) next
-              Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(\"%s\", %s, %s)" str str (showShape dims) f)) ++ (compile' (pd & vars %~ M.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str) (T (Ref str) dims)) 
+              Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(\"%s\", %s, %s)" str str (showShape dims) (show f))) ++ (compile' (pd & vars %~ M.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str) (T (Ref str) dims)) 
                                                  (nextf $ T (Ref str) Nothing))
-              Free (InitVarWithDefault str dims nextf) -> compile' pd (Free $ InitVar str dims (pd ^. defaultInits) nextf)
+              Free (InitVarWithDefault str dims nextf) -> compile' pd (Free $ InitVar str dims (PCode $ pd ^. defaultInits) nextf)
               Free (AddScope str next) -> (withIndent pd (printf "with tf.variable_scope(\"%s\"):" str))++(compile' (pd & scopeList %~ (++[str])) next)
               Free (ExitScope next) -> compile' (pd & scopeList %~ init) next
               Free (Get str nextf) -> compile' pd 
