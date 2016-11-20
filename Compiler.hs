@@ -55,7 +55,7 @@ varNames = concat (map (listpow alphabet) [1..]) & map ('_':)
 
 makeLenses ''ProgramData
 
-getIndent pd = 4*(pd ^. scopeList)
+getIndent pd = 4*(length (pd ^. scopeList))
 
 withIndent pd str = (replicate (getIndent pd) ' ')++str++"\n"
 
