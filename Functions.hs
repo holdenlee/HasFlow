@@ -57,9 +57,15 @@ makeFun2 str args f x y = T (TFun str [val x, val y] args (\[x,y] -> f x y))
 makeFun2_ :: String -> ([Expr] -> [Expr] -> Shape) -> T -> T -> T
 makeFun2_ a = makeFun2 a M.empty
 
+makeFunL :: String -> PyArgs -> ([[Expr]] -> Shape) -> [T] -> T
+makeFunL str args f xs = T (TFun str (map val xs) args f) (sequence (map shape xs) >>= f)
+
 --ex. conv2d($1, $2, $stride, **): $1, 2 are from args, $stride is lookup in pyargs, ** is rest of stuff in dictionary.
 
 --define a whole host this way.
+
+pack :: [T] -> T
+pack = makeFunL "pack" (M.empty) (\_ -> Nothing) 
 
 sigmoid :: T -> T
 sigmoid = makeFun_ "sigmoid" Just 

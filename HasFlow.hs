@@ -63,30 +63,42 @@ lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1 = do
     out <- save $ softmax (h1 * wo1 + bo1)
     return (out, (c1, h1))
 
-scanM :: Monad m => (c -> a -> m (b,c)) -> c -> [a] -> m [b]
+scanM :: Monad m => (c -> a -> m (b,c)) -> c -> [a] -> m ([b], c)
 scanM f start li = case li of
-                     [] -> return []
+                     [] -> return ([], start)
                      h:rest -> do
                              (b, c) <- f start h
-                             r <- scanM f c rest
-                             return (b:r)
+                             (r, c') <- scanM f c rest
+                             return ((b:r), c')
 
-scanlM :: (c -> T -> Flow (T,c)) -> c -> T -> Int -> Flow [T]
+scanlM :: (c -> T -> Flow (T,c)) -> c -> T -> Int -> Flow ([T], c)
 scanlM f start li n = scanM (\c i -> 
                                  do 
                                    let t = li .! i
                                    f c t) start [1..n]
-    
+
+lstm_test = putStrLn $ compile $ do
+              let l = 2::Int
+              let batches = 1::Int
+              let m = 4
+              let n = 5
+              xs <- initVarWithDefault "xs" [l, batches, n]
+              ys <- initVarWithDefault "ys" [l, batches, n]
+              lstm xs ys batches l m n
 
 lstm xs ys batches l m n = do
     setDefaultInits "tf.truncated_normal_initializer(stddev=1e-2)"
-    [wf, wi, wc, wo] <- mapM (\x -> initVarWithDefault x [m+n, m]) ["wf", "wi", "wC", "wo"]
+    [wf, wi, wC, wo] <- mapM (\x -> initVarWithDefault x [m+n, m]) ["wf", "wi", "wC", "wo"]
     wo1 <- initVarWithDefault "wo1" [m,n]
-    [bf, bi, bc, bo] <- mapM (\x -> initVarWithDefault x m) ["bf", "bi", "bC", "bo"]
+    [bf, bi, bC, bo] <- mapM (\x -> initVarWithDefault x m) ["bf", "bi", "bC", "bo"]
     bo1 <- initVarWithDefault "bo1" n
     let c = zeros [batches,m] 
     let h = zeros [batches,m]
-    return wf
+    (outs, end) <- scanlM (\mem x -> lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1) (c,h) xs l
+    return (pack outs)
+--    yhats = tf.pack(outs)
+
+            --(c -> T -> Flow (T,c)) -> c -> T -> Int -> Flow [T]
 {-
     (outs, end) = scan(lambda mem, x: step_lstm1(x, mem, Wf, bf, Wi, bi, WC, bC, Wo, bo, Wo1, bo1), 
                        (C,h), xs, l)

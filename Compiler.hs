@@ -136,8 +136,10 @@ funMap :: M.Map String (String, PyArgs)
 funMap = M.fromList
          [("concat", ("tf.concat($axis, $$)", M.fromList [("axis", p (1::Int))])),
           ("get", ("$1[$index]", M.empty)),
+          ("pack", ("tf.pack($$)", M.empty)),
           ("sigmoid", ("tf.sigmoid($1)", M.empty)),
           ("softmax", ("tf.softmax($1)", M.empty)),
           ("tanh", ("tf.tanh($1)", M.empty)),
-          ("zeros", ("zeros($shape)", M.empty))]
+          ("zeros", ("zeros($shape)", M.empty)),
+          (".*", ("$1 * $2", M.empty))]
           
