@@ -40,6 +40,7 @@ data TGraph next =
     SetDefaultInits String next
     | InitVar String Shape Py (T -> next)
     | InitVarWithDefault String Shape (T -> next)
+    | InitPH String Shape (T -> next)
 --    | GetScope String (String -> next) 
 --    | SetScope String next
     | AddScope String next
@@ -59,6 +60,9 @@ setDefaultInits str = liftF (SetDefaultInits str ())
 initVar :: (Shapable a, Argable s) => String -> a -> s -> Flow T
 initVar str li f =  Free $ InitVar str (s li) (p f) Pure
 --liftF (InitVar str li f id)
+
+initPH :: (Shapable a) => String -> a -> Flow T
+initPH str sh = Free $ InitPH str (s sh) Pure
 
 initVarWithDefault :: (Shapable a) => String -> a -> Flow T
 initVarWithDefault str li =  Free $ InitVarWithDefault str (s li) Pure

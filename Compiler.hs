@@ -74,6 +74,7 @@ compile' pd = \case
               Free (InitVar str dims f nextf) -> (withIndent pd (printf "%s = get_variable(\"%s\", %s, %s)" str str (showShape dims) (show f))) ++ (compile' (pd & vars %~ M.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str) (T (Ref str) dims)) 
                                                  (nextf $ T (Ref str) Nothing))
               Free (InitVarWithDefault str dims nextf) -> compile' pd (Free $ InitVar str dims (PCode $ pd ^. defaultInits) nextf)
+              Free (InitPH str dims nextf) -> (withIndent pd (printf "%s = get_variable(\"%s\", %s, var_type=\"placeholder\")" str str (showShape dims))) ++ (compile' (pd & vars %~ M.insert (printf "%s/%s" (intercalate "/" $ pd ^. scopeList) str) (T (Ref str) dims)) (nextf $ T (Ref str) Nothing))
               Free (AddScope str next) -> (withIndent pd (printf "with tf.variable_scope(\"%s\"):" str))++(compile' (pd & scopeList %~ (++[str])) next)
               Free (ExitScope next) -> compile' (pd & scopeList %~ init) next
               Free (Get str nextf) -> compile' pd 
@@ -119,24 +120,25 @@ repeatUntilNothing f x = case f x of
 entryToF :: (String, PyArgs) -> [TVal] -> PyArgs -> String
 entryToF (str, defArgs) li args = repeatUntilNothing
                           (\st -> do
-                             (beg, match, after, _) <- matchRegexAll (mkRegex "\\$([a-zA-z]+|[0-9]+|\\$)") st
+                             (beg, match, after, _) <- matchRegexAll (mkRegex "\\$([a-zA-Z]+|[0-9]+|\\$)") st
                              let m = match!!1
                              let ms = tail match
                              repl <-
                                  if (isAlpha m) 
-                                 then fmap show $ chooseLeft (M.lookup (tail match) args) (M.lookup (tail match) defArgs)
+                                 then fmap show $ chooseLeft (M.lookup ms args) (M.lookup ms defArgs)
                                  else if (isDigit m)
                                       then do
                                         t <- li `mindex` ((read ms) - 1)
-                                        return (show t)
-                                      else return (printf "(%s)" $ intercalate "," (map compileTV li))
+                                        return (compileTV t)
+                                      else return (printf "[%s]" $ intercalate "," (map compileTV li))
                              return (beg++repl++after)) str
 
 funMap :: M.Map String (String, PyArgs)
 funMap = M.fromList
          [("concat", ("tf.concat($axis, $$)", M.fromList [("axis", p (1::Int))])),
-          ("get", ("$1[$index]", M.empty)),
-          ("pack", ("tf.pack($$)", M.empty)),
+          ("get", ("$1[$index]", M.empty)), -- ?
+          --M.fromList [("index", p (0::Int))]
+          ("pack", ("tf.pack($$)", M.empty)), -- ?
           ("sigmoid", ("tf.sigmoid($1)", M.empty)),
           ("softmax", ("tf.softmax($1)", M.empty)),
           ("tanh", ("tf.tanh($1)", M.empty)),

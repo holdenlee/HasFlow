@@ -82,8 +82,8 @@ lstm_test = putStrLn $ compile $ do
               let batches = 1::Int
               let m = 4
               let n = 5
-              xs <- initVarWithDefault "xs" [l, batches, n]
-              ys <- initVarWithDefault "ys" [l, batches, n]
+              xs <- initPH "xs" [l, batches, n]
+              ys <- initPH "ys" [l, batches, n]
               lstm xs ys batches l m n
 
 lstm xs ys batches l m n = do
