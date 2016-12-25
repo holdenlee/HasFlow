@@ -227,7 +227,12 @@ freqTable li = map (\li -> (li!!0, length li)) $ group $ sort li
 
 -- * Other
 
---unsafe
+chooseLeft :: Maybe a -> Maybe a -> Maybe a
+chooseLeft a b = case (a,b) of
+                   (Just l, _) -> Just l
+                   (_, Just r) -> Just r
+                   _ -> Nothing
+
 maybeLeft :: Either a b -> Maybe a
 maybeLeft x = case x of
               Left y -> Just y
@@ -237,6 +242,8 @@ maybeRight :: Either a b -> Maybe b
 maybeRight x = case x of
               Left _ -> Nothing
               Right y -> Just y
+
+--unsafe
 
 fromLeft = fromJust . maybeLeft
 

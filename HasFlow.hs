@@ -38,6 +38,7 @@ import Compiler
 import Args
 import Control.Monad.Writer.Lazy
 
+-- Basic operations
 test :: Flow T
 test = do
   setDefaultInits "default"
@@ -51,6 +52,28 @@ test = do
   return (e + d)
 
 do_test = putStrLn (compile_ test)
+
+-- Basic layers
+sigmoid_f :: T -> T -> T -> Flow T
+sigmoid_f a b x = save $ sigmoid (x * a + b)
+
+sigmoid_layer :: Polynomial -> Polynomial -> T -> Flow T
+sigmoid_layer m n x = do
+  a <- initVarWithDefault "A" [m,n]
+  b <- initVarWithDefault "b" [n]
+  sigmoid_f a b x
+
+multilayer_code :: Flow T
+multilayer_code = do
+  setDefaultInits "tf.truncated_normal_initializer(stddev=1e-2)"
+  let b = pref "b_dim"
+  let n = pref "n_dim"
+  x <- initPH "x" [b, n] --initialize placeholder
+  stacks "sigmoid_layer" 2 (sigmoid_layer n n) x
+
+multilayer_test = putStrLn $ compile_ multilayer_code
+
+multilayer_test2 = putStrLn $ compileWithShapes multilayer_code 
 
 lstm_step :: T -> T -> T -> T -> T -> T -> T -> T -> T -> T -> (T, T) -> T -> Flow ((T,T), T)
 lstm_step wf bf wi bi wC bC wo bo wo1 bo1 mem x = do
@@ -96,6 +119,8 @@ lstm xs ys batches l m n = do
     let h = zeros (toShape [batches,m])
     (end, outs) <- mapAccumLT (lstm_step wf bf wi bi wC bC wo bo wo1 bo1) (c,h) xs l
     return (pack outs)
+
+
 
 {-
 def lstm_fs_(xs, ys, batches, l, m, n):

@@ -71,29 +71,36 @@ withIndents pd = concat . map (withIndent pd)
 compile_ :: Flow T -> String
 compile_ t = fst $ runWriter (compile t)
 
+compileWithShapes :: Flow T -> String
+compileWithShapes = unlines . snd . runWriter . compile
+
 compile :: Flow T -> Writer [String] String
 compile = compile' (ProgramData {_defaultInits = "", _scopeList = [], _vars = M.empty, _shapes = M.empty, _curIndex = 0})
---no scope right now
 
+--makes sense to put ProgramData into state so this would be Flow T -> StateT ProgramData (Writer [String]) String
 compile' :: ProgramData -> Flow T -> Writer [String] String
 compile' pd = \case
               Free (SetDefaultInits str next) -> compile' (pd & defaultInits .~ str) next
               Free (InitVar str dims f nextf) -> do
-                  let cur = (withIndent pd (printf "%s = get_variable(\"%s\", %s, %s)" str str (showShape dims) (show f)))
-                  let fullname = printf "%s%s" (concat $ map (++"/") (pd ^. scopeList)) str
+                  let curVar = varNames !! (pd ^. curIndex)
+                  let cur = (withIndent pd (printf "%s = get_variable(\"%s\", %s, %s)" curVar str (showShape dims) (show f)))
+                  let fullname = (concat $ map (++"/") (pd ^. scopeList))++str
 --(intercalate "/" $ pd ^. scopeList) str
-                  tell $ [printf "# %s : %s" str $ showShape dims]
-                  following <- compile' (pd & vars %~ M.insert fullname (Ref str)
-                                            & shapes %~ M.insert fullname dims)
-                               (nextf $ Ref str)
+                  tell $ [printf "# %s : %s" str $ showShape dims, init cur]
+                  following <- compile' (pd & vars %~ M.insert fullname (Ref curVar)  --str
+                                            & shapes %~ M.insert curVar dims --fullname
+                                            & curIndex %~ (+1))
+                               (nextf $ Ref curVar) --str
                   return (cur++following)
               Free (InitVarWithDefault str dims nextf) -> compile' pd (Free $ InitVar str dims (PCode $ pd ^. defaultInits) nextf)
               Free (InitPH str dims nextf) -> do
-                  let cur = (withIndent pd (printf "%s = get_variable(\"%s\", %s, var_type=\"placeholder\")" str str (showShape dims)))
-                  let fullname = printf "%s%s" (concat $ map (++"/") (pd ^. scopeList)) str
-                  tell $ [printf "# %s : %s" str $ showShape dims]
-                  following <- (compile' (pd & vars %~ M.insert fullname (Ref str)
-                                             & shapes %~ M.insert fullname dims) (nextf $ Ref str))
+                  let curVar = varNames !! (pd ^. curIndex)
+                  let cur = (withIndent pd (printf "%s = get_variable(\"%s\", %s, var_type=\"placeholder\")" curVar str (showShape dims)))
+                  let fullname = (concat $ map (++"/") (pd ^. scopeList))++str
+                  tell $ [printf "# %s : %s" str $ showShape dims, init cur]
+                  following <- (compile' (pd & vars %~ M.insert fullname (Ref curVar)
+                                             & shapes %~ M.insert curVar dims --curVar
+                                             & curIndex %~ (+1)) (nextf $ Ref curVar))
                   return (cur++following)
               Free (AddScope str next) -> do
                 let cur = (withIndent pd (printf "with tf.variable_scope(\"%s\"):" str))
@@ -104,8 +111,9 @@ compile' pd = \case
                                       (nextf $ Ref str)
               Free (Save t nextf) -> do
                   let curVar = varNames !! (pd ^. curIndex)
-                  (tc, sh) <- compileT' (pd ^. shapes) t
+                  (tc, sh) <- compileT' (concat $ map (++"/") (pd ^. scopeList)) (pd ^. shapes) t
                   let cur = (withIndent pd (printf "%s = %s" curVar tc)) 
+                  tell [init cur]
                   following <- (compile' 
                      (pd & vars %~ M.insert curVar t 
                          & curIndex %~ (+1)
@@ -114,31 +122,32 @@ compile' pd = \case
                   return (cur ++ following)
               Pure t -> pure $ (withIndent pd (printf "%s = %s" (varNames!!(pd ^. curIndex)) (show t))) -- ++ compile' (pd & vars %~ S.insert (varNames!!(pd ^. curIndex)) & curIndex %~ (+1))
 
---throwing away logging - change this
-compileT :: M.Map String Shape -> T -> (String, Shape)
-compileT m t = 
-    let ((str, sh),w) = runWriter $ compileT' m t
+--first argument is scope
+compileT :: String -> M.Map String Shape -> T -> (String, Shape)
+compileT sc m t = 
+    let ((str, sh),w) = runWriter $ compileT' sc m t
     in (str, sh)
 
-compileT' :: M.Map String Shape -> T -> Writer [String] (String, Shape)
-compileT' m = \case
+compileT' :: String -> M.Map String Shape -> T -> Writer [String] (String, Shape)
+compileT' sc m = 
+              \case
               TFloat x -> pure $ (show x, toShape (1::Int)) --shape not implemented
               TInt x -> pure $ (show x, toShape (1::Int)) --shape not implemented
               Ref str -> do
-                let sh = join $ M.lookup str m
+                let sh = join $ M.lookup (str) m
                 tell $ [printf "# %s : %s" str (showShape sh)]
                 pure (str, sh)
               --pure $ (str, join $ M.lookup str m)
               Add t1 t2 -> do
-                (tc1, sh1) <- compileT' m t1
-                (tc2, sh2) <- compileT' m t2
+                (tc1, sh1) <- compileT' sc m t1
+                (tc2, sh2) <- compileT' sc m t2
                 let sh = tryAdd sh1 sh2
                 let cur = printf "(%s + %s)" tc1 tc2
                 tell $ [printf "# %s : %s" cur (showShape sh)]
                 return (cur, sh)
               Mul t1 t2 -> do
-                (tc1, sh1) <- compileT' m t1
-                (tc2, sh2) <- compileT' m t2
+                (tc1, sh1) <- compileT' sc m t1
+                (tc2, sh2) <- compileT' sc m t2
                 let sh = tryMul sh1 sh2
                 let cur = printf "(%s * %s)" tc1 tc2
                 tell $ [printf "# %s : %s" cur (showShape sh)]
@@ -146,7 +155,7 @@ compileT' m = \case
               TFun s li args f -> 
                   do
                     -- [(String, Shape)]
-                    results <- mapM (compileT' m) li
+                    results <- mapM (compileT' sc m) li
                     let (tcs, shs) = unzip results
                     -- shs :: [Shape = Maybe [Polynomial]]
                     let sh = sequence shs >>= f

@@ -84,18 +84,16 @@ concatenate n ts = TFun "concat" ts (M.fromList [("axis", p n)])
                           then Just $ insertAt n (sum $ map (!!n) li) a
                           else Nothing)
 
---(Just . head)
---fix dims! 
--- TFun String [TVal] PyArgs ([Shape] -> Maybe Shape)
-
 zeros :: Shape -> T
 zeros a =  TFun "zeros" [] (M.fromList [("shape", p (showShape a))]) (\_ -> a)
 
 (.!) :: T -> Int -> T
 (.!) x n = TFun "get" [x] (M.fromList [("index", p n)]) (Just . tail . (!!0))
 
+{-
 (.!!) :: (Argable a) => T -> a -> T
 (.!!) x a =  TFun "get" [x] (M.fromList [("index", p a)]) (\_ -> Nothing)
+-}
 
 (.*) :: T -> T -> T
 (.*) = makeFun2_ ".*" (\x y -> if x `isPrefixOf` y then Just y else Nothing)
@@ -116,9 +114,3 @@ stacks str n f = chainM (map (\i -> scope (str++(show i)) . f) [1..n])
 --stacks str n f x = chainM (\y -> scope (map ((str++).show) [1..n]) $ f y) x
 --repeatM n (\y -> scope str $ f y) x
 
-
-chooseLeft :: Maybe a -> Maybe a -> Maybe a
-chooseLeft a b = case (a,b) of
-                   (Just l, _) -> Just l
-                   (_, Just r) -> Just r
-                   _ -> Nothing

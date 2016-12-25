@@ -60,5 +60,8 @@ instance Shapable [String] where
 instance Shapable () where
     toShape () = Nothing
 
+instance Shapable [Polynomial] where
+    toShape = Just
+
 instance Shapable Shape where
     toShape = id
