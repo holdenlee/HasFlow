@@ -66,7 +66,11 @@ instance Algebra.Ring.C T where
 
 tryAdd :: Shape -> Shape -> Shape
 tryAdd s1 s2 = case (s1,s2) of
-                  (Just x, Just y) -> if x==y then Just x else Nothing 
+                  (Just x, Just y) -> 
+                      let
+                          (shorter, longer) = if (length x) < (length y) then (x,y) else (y,x)
+                      in
+                        if shorter `isSuffixOf` longer then Just longer else Nothing
                   --assume simplified already
                   _ -> Nothing
 

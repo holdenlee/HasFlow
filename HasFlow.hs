@@ -36,6 +36,8 @@ import Graph
 import Functions
 import Compiler
 import Args
+import Control.Monad.Writer.Lazy
+
 
 test :: Flow T
 test = do
@@ -49,7 +51,7 @@ test = do
   e <- get "a"
   return (e + d)
 
-do_test = putStrLn (compile test)
+do_test = putStrLn (compile_ test)
 
 lstm_step :: T -> (T,T) -> T -> T -> T -> T -> T -> T -> T -> T -> T -> T -> Flow (T, (T,T))
 lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1 = do
@@ -60,7 +62,7 @@ lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1 = do
     c_add <- save $ tanh (hx * wC + bC)
     c1 <- save $ (f .* c + i .* c_add)
     o <- save $ sigmoid(hx * wo + bo)
-    h1 <- save $ o * (tanh c1)
+    h1 <- save $ o .* (tanh c1)
     out <- save $ softmax (h1 * wo1 + bo1)
     return (out, (c1, h1))
 
@@ -78,7 +80,7 @@ scanlM f start li n = scanM (\c i ->
                                    let t = li .! i
                                    f c t) start [1..n]
 
-lstm_test = putStrLn $ compile $ do
+lstm_code = do
               let l = 2::Int
               let batches = 1::Int
               let m = 4
@@ -86,6 +88,12 @@ lstm_test = putStrLn $ compile $ do
               xs <- initPH "xs" [l, batches, n]
               ys <- initPH "ys" [l, batches, n]
               lstm xs ys batches l m n
+
+lstm_test = putStrLn $ compile_ lstm_code
+
+lstm_test2 = do
+  let (ans, log) = runWriter (compile lstm_code)
+  putStrLn (unlines log)
 
 lstm xs ys batches l m n = do
     setDefaultInits "tf.truncated_normal_initializer(stddev=1e-2)"
