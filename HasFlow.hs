@@ -38,7 +38,6 @@ import Compiler
 import Args
 import Control.Monad.Writer.Lazy
 
-
 test :: Flow T
 test = do
   setDefaultInits "default"
@@ -53,8 +52,8 @@ test = do
 
 do_test = putStrLn (compile_ test)
 
-lstm_step :: T -> (T,T) -> T -> T -> T -> T -> T -> T -> T -> T -> T -> T -> Flow (T, (T,T))
-lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1 = do
+lstm_step :: T -> T -> T -> T -> T -> T -> T -> T -> T -> T -> (T, T) -> T -> Flow ((T,T), T)
+lstm_step wf bf wi bi wC bC wo bo wo1 bo1 mem x = do
     let (c, h) = mem
     hx <- save $ concatenate 1 [h,x]
     f <- save $ sigmoid (hx * wf + bf)
@@ -64,18 +63,10 @@ lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1 = do
     o <- save $ sigmoid(hx * wo + bo)
     h1 <- save $ o .* (tanh c1)
     out <- save $ softmax (h1 * wo1 + bo1)
-    return (out, (c1, h1))
+    return ((c1, h1), out)
 
-scanM :: Monad m => (c -> a -> m (b,c)) -> c -> [a] -> m ([b], c)
-scanM f start li = case li of
-                     [] -> return ([], start)
-                     h:rest -> do
-                             (b, c) <- f start h
-                             (r, c') <- scanM f c rest
-                             return ((b:r), c')
-
-scanlM :: (c -> T -> Flow (T,c)) -> c -> T -> Int -> Flow ([T], c)
-scanlM f start li n = scanM (\c i -> 
+mapAccumLT :: (c -> T -> Flow (c,T)) -> c -> T -> Int -> Flow (c, [T])
+mapAccumLT f start li n = mapAccumLM (\c i -> 
                                  do 
                                    let t = li .! i
                                    f c t) start [1..n]
@@ -103,15 +94,8 @@ lstm xs ys batches l m n = do
     bo1 <- initVarWithDefault "bo1" n
     let c = zeros (toShape [batches,m]) 
     let h = zeros (toShape [batches,m])
-    (outs, end) <- scanlM (\mem x -> lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1) (c,h) xs l
+    (end, outs) <- mapAccumLT (lstm_step wf bf wi bi wC bC wo bo wo1 bo1) (c,h) xs l
     return (pack outs)
---    yhats = tf.pack(outs)
-
-            --(c -> T -> Flow (T,c)) -> c -> T -> Int -> Flow [T]
-{-
-    (outs, end) = scan(lambda mem, x: step_lstm1(x, mem, Wf, bf, Wi, bi, WC, bC, Wo, bo, Wo1, bo1), 
-                       (C,h), xs, l)
--}
 
 {-
 def lstm_fs_(xs, ys, batches, l, m, n):
