@@ -63,7 +63,10 @@ pref s = Polynomial [Monomial 1 [s]]
 
 instance Show Monomial where
     show (Monomial c li) = 
-        (if c==1 then "" else (show c)++"*")++(intercalate "*" li)
+        case (c,li) of
+          (_, []) -> show c
+          (1, _) -> intercalate "*" li
+          _ -> (show c)++"*"++(intercalate "*" li)
 
 instance Show Polynomial where
     show (Polynomial li) = 

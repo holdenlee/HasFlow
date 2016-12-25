@@ -28,7 +28,7 @@ type Shape = Maybe [Polynomial]
 showShape :: Shape -> String
 showShape = \case
             Just e -> show e
-            Nothing -> "[]"
+            Nothing -> "UNDEFINED"
 
 class Shapable a where
     toShape :: a -> Shape

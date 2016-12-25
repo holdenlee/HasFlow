@@ -29,7 +29,8 @@ import Data.Functor
 import Control.Applicative
 
 import MonadUtilities
-import Expr
+import Polynomial
+import Shape
 import Tensor
 import Graph
 import Functions
@@ -92,8 +93,8 @@ lstm xs ys batches l m n = do
     wo1 <- initVarWithDefault "wo1" [m,n]
     [bf, bi, bC, bo] <- mapM (\x -> initVarWithDefault x m) ["bf", "bi", "bC", "bo"]
     bo1 <- initVarWithDefault "bo1" n
-    let c = zeros [batches,m] 
-    let h = zeros [batches,m]
+    let c = zeros (toShape [batches,m]) 
+    let h = zeros (toShape [batches,m])
     (outs, end) <- scanlM (\mem x -> lstm_step x mem wf bf wi bi wC bC wo bo wo1 bo1) (c,h) xs l
     return (pack outs)
 --    yhats = tf.pack(outs)

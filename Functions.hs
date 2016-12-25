@@ -89,7 +89,7 @@ concatenate n ts = TFun "concat" ts (M.fromList [("axis", p n)])
 -- TFun String [TVal] PyArgs ([Shape] -> Maybe Shape)
 
 zeros :: Shape -> T
-zeros a =  TFun "zeros" [] (M.fromList [("shape", p (show a))]) (\_ -> a)
+zeros a =  TFun "zeros" [] (M.fromList [("shape", p (showShape a))]) (\_ -> a)
 
 (.!) :: T -> Int -> T
 (.!) x n = TFun "get" [x] (M.fromList [("index", p n)]) (Just . tail . (!!0))
