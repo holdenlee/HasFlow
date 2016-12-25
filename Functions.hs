@@ -29,35 +29,36 @@ import Data.Functor
 import Control.Applicative
 
 import MonadUtilities
-import Expr
+import Polynomial
 import Tensor
 import Graph
 import Args
+import Shape
 
 -- |
 -- == Making functions
-makeFun :: String -> PyArgs -> ([Expr] -> Shape) -> T -> T
+makeFun :: String -> PyArgs -> ([Polynomial] -> Shape) -> T -> T
 makeFun str args f x = T (TFun str [val x] args (\[x] -> f x)) (shape x >>= f)
--- note Shape = Maybe [Expr]
+-- note Shape = Maybe [Polynomial]
 -- TFun String [TVal] PyArgs ([Shape] -> Maybe Shape)
 
 make_ :: (a -> PyArgs -> b -> c -> d) -> a -> b -> c -> d
 make_ f a = f a M.empty
 
-makeFun_ :: String -> ([Expr] -> Shape) -> T -> T
+makeFun_ :: String -> ([Polynomial] -> Shape) -> T -> T
 makeFun_ = make_ makeFun
 
-makeFun2 :: String -> PyArgs -> ([Expr] -> [Expr] -> Shape) -> T -> T -> T
+makeFun2 :: String -> PyArgs -> ([Polynomial] -> [Polynomial] -> Shape) -> T -> T -> T
 makeFun2 str args f x y = T (TFun str [val x, val y] args (\[x,y] -> f x y)) 
                           (do 
                             x' <- shape x
                             y' <- shape y
                             f x' y')
 
-makeFun2_ :: String -> ([Expr] -> [Expr] -> Shape) -> T -> T -> T
+makeFun2_ :: String -> ([Polynomial] -> [Polynomial] -> Shape) -> T -> T -> T
 makeFun2_ a = makeFun2 a M.empty
 
-makeFunL :: String -> PyArgs -> ([[Expr]] -> Shape) -> [T] -> T
+makeFunL :: String -> PyArgs -> ([[Polynomial]] -> Shape) -> [T] -> T
 makeFunL str args f xs = T (TFun str (map val xs) args f) (sequence (map shape xs) >>= f)
 
 --ex. conv2d($1, $2, $stride, **): $1, 2 are from args, $stride is lookup in pyargs, ** is rest of stuff in dictionary.

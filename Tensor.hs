@@ -14,7 +14,7 @@
 
 module Tensor where
 
-import Prelude hiding ((+), (*), (-))
+import Prelude hiding ((+), (*), (-), fromInteger)
 import Algebra.Additive as Additive
 import Algebra.Ring hiding (product)
 import Control.Monad
@@ -29,13 +29,14 @@ import Data.Functor
 import Control.Applicative
 
 import MonadUtilities
-import Expr
+import Polynomial
 import Args
+import Shape
 
 -- |
 -- == Tensors
 data TVal = F Float | L [TVal] | Ref String | Add TVal TVal | Mul TVal TVal
-          | TFun String [TVal] PyArgs ([[Expr]] -> Shape)
+          | TFun String [TVal] PyArgs ([[Polynomial]] -> Shape)
 -- I Int
 
 instance Show TVal where
@@ -76,12 +77,13 @@ tryMul s1 s2 = case (s1, s2) of
                  (Just li1, Just li2) -> if last li1 == head li2 then Just ((init li1) ++ (tail li2)) else Nothing
                  _ -> Nothing
 
+--I'm abusing this so that I can use +/* notation.
 instance Additive.C T where
-    zero = T (F 0) (Just [EInt 1])
+    zero = T (F 0) (Just [fromInteger 1])
     (T v1 s1) + (T v2 s2) = T (v1 + v2) (s1 `tryAdd` s2)  
     negate (T v s) = T (Additive.negate v) s
     --ENeg
 
 instance Algebra.Ring.C T where
     (T v1 s1) * (T v2 s2) = T (v1 * v2) (s1 `tryMul` s2) 
-    fromInteger n = T (Algebra.Ring.fromInteger n) (Just [EInt 1])
+    fromInteger n = T (Algebra.Ring.fromInteger n) (Just [fromInteger 1])

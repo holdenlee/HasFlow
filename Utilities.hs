@@ -5,6 +5,7 @@
  -XFlexibleInstances
  -XRank2Types
  -XGADTs
+ -XLambdaCase
  -XPolyKinds
 #-}
 
@@ -13,7 +14,7 @@ import System.Environment
 import Control.Monad
 import Data.Tree
 import Data.List
-import qualified Data.Map.Strict as Map
+import qualified Data.Map.Strict as M
 import qualified Data.Hashable
 import Data.Either
 import Data.Maybe
@@ -131,11 +132,21 @@ prependFun f x = (f x, x)
 
 -- * Maps and Lists
 
+mapReduce :: (Ord b) => (a -> (b,c)) -> (b -> [c] -> [d]) -> [a] -> [d]
+mapReduce mf rf = concat . M.elems . M.mapWithKey rf . foldl 
+                  (\mp a -> 
+                            let 
+                                (b,c) = mf a
+                            in
+                              M.alter (\case 
+                                        Nothing -> Just [c]
+                                        Just x -> Just (c:x)) b mp) M.empty
+
 isInitialSegment :: Eq a => [a] -> [a] -> Bool
 isInitialSegment = isJust `c2` stripPrefix
 
-insertMultiple :: (Ord a) => [(a, b)] -> Map.Map a b -> Map.Map a b 
-insertMultiple li h = foldl (\hm -> (\(x,y) -> Map.insert x y hm)) h li
+insertMultiple :: (Ord a) => [(a, b)] -> M.Map a b -> M.Map a b 
+insertMultiple li h = foldl (\hm -> (\(x,y) -> M.insert x y hm)) h li
 
 listUpdateFun :: Int -> (a-> a) -> [a] -> [a]
 listUpdateFun n f li = listUpdate n (f (li !! n)) li
@@ -167,12 +178,12 @@ filterZip p as bs = filter (\(x,y) -> p y) (zip as bs)
 cofilter :: (b->Bool) -> [a] -> [b] -> ([a],[b])
 cofilter p as bs = unzip (filterZip p as bs)
 
-lookupList:: (Ord a) => [a] -> Map.Map a b -> [Maybe b]
-lookupList as mp = fmap (flip Map.lookup mp) as
+lookupList:: (Ord a) => [a] -> M.Map a b -> [Maybe b]
+lookupList as mp = fmap (flip M.lookup mp) as
 
 --unsafe
-lookupList2:: (Ord a) => [a] -> Map.Map a b -> [b]
-lookupList2 as mp = fmap ((Map.!) mp) as
+lookupList2:: (Ord a) => [a] -> M.Map a b -> [b]
+lookupList2 as mp = fmap ((M.!) mp) as
 
 --I'm surprised this doesn't exist.
 mlookup :: Int -> [a] -> Maybe a
@@ -204,6 +215,9 @@ zemap f li = map f (zenumerate li)
 
 keepi :: (Int -> Bool) -> [a] -> [a]
 keepi f li = map snd (filter (f.fst) (enumerate li))
+
+freqTable :: (Ord a) => [a] -> [(a, Int)]
+freqTable li = map (\li -> (li!!0, length li)) $ group $ sort li
 
 -- * Other
 

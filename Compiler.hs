@@ -33,11 +33,12 @@ import Control.Applicative
 
 import MonadUtilities
 import Utilities
-import Expr
+import Polynomial
 import Tensor
 import Graph
 import Functions
 import Args
+import Shape
 
 --put this in HasFlow.Compilers.Base
 
@@ -103,7 +104,7 @@ compileTV = \case
 --printf "%s(%s)" s (intercalate "," $ map compileTV li)
 {-
 data TVal = F Float | L [TVal] | Ref String | Add TVal TVal | Mul TVal TVal
-          | TFun String [TVal] PyArgs ([[Expr]] -> Shape)
+          | TFun String [TVal] PyArgs ([[Polynomial]] -> Shape)
 -}
 
 {-

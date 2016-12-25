@@ -29,7 +29,7 @@ import Data.Functor
 import Control.Applicative
 
 import MonadUtilities
-import Expr
+import Shape
 import Tensor
 import Args
 
