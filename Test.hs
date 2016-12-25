@@ -12,7 +12,7 @@
  -XDeriveFunctor
 #-}
 
-module HasFlow where
+module Test where
 
 import Prelude hiding ((+), (*), (-), tanh)
 import Algebra.Additive as Additive
@@ -95,6 +95,7 @@ mapAccumLT f start li n = mapAccumLM (\c i ->
                                    f c t) start [1..n]
 
 lstm_code = do
+              setDefaultInits "tf.truncated_normal_initializer(stddev=1e-2)"
               let l = 2::Int
               let batches = 1::Int
               let m = 4
@@ -110,7 +111,6 @@ lstm_test2 = do
   putStrLn (unlines log)
 
 lstm xs ys batches l m n = do
-    setDefaultInits "tf.truncated_normal_initializer(stddev=1e-2)"
     [wf, wi, wC, wo] <- mapM (\x -> initVarWithDefault x [m+n, m]) ["wf", "wi", "wC", "wo"]
     wo1 <- initVarWithDefault "wo1" [m,n]
     [bf, bi, bC, bo] <- mapM (\x -> initVarWithDefault x m) ["bf", "bi", "bC", "bo"]

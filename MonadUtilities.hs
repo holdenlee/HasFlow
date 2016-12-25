@@ -18,6 +18,10 @@ repeatM i f x = if i==0
                 then pure x
                 else f x >>= repeatM (i-1) f
 
+chainM :: (Monad m) => [a -> m a] -> a -> m a
+chainM li x = foldl (>>=) (pure x) li
+--chainM li = foldl1 (>>) (pure:li)
+
 {-
 mapAccumLM :: Monad m => (a -> b -> m (a,c)) -> a -> [b] -> m (a, [c])
 mapAccumLM f start li = case li of

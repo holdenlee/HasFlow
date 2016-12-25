@@ -21,7 +21,7 @@ multilayer_code = do
   stacks "sigmoid_layer" 2 (sigmoid_layer n n) x
 ```
 
-Compile the code using `compile_`. Use `compileWithShapes` to output check the dimensions of the tensors.
+Compile the code using `compile_`. Use `compileWithShapes` to check and output the dimensions of the tensors.
 
 ```
 multilayer_test = putStrLn $ compile_ multilayer_code
@@ -49,6 +49,8 @@ _h = _g
 Inferring the shapes:
 
 ```
+$ multilayer_test2 
+
 # x : [b_dim,n_dim]
 _a = get_variable("x", [b_dim,n_dim], var_type="placeholder")
 # A : [n_dim,n_dim]
@@ -77,13 +79,11 @@ _a = get_variable("x", [b_dim,n_dim], var_type="placeholder")
 
 # TODO
 
-*   Automatic shape computation
-	*   Broadcasting
+*   Shape computation
+	*   Check broadcasting behavior.
 	*   What if shape depend on arguments?
-*   What should be done at level of `T` vs. `TVal`?
-*   Mapping
-*   `tfold`, `tscan`, etc. for tensors
-*   Make notation slightly more efficient than `x <- save $ ...`.
+*   Higher-order functions on tensors
+	*   Tricky because, ex. type signature is something like `(c -> T -> Flow (c, T)) -> c -> T -> Flow (c, [T])`. To do shape-checking we need to constrain `c`. Idea: Add a type class `MadeOfT` containing nested tuples of `T`'s.
 *   Add more functions!
 *   Instance declarations right now require type annotations like `1::Int`. How to get around this?
-*   Python interface
+*   Python foreign function interface

@@ -106,9 +106,6 @@ stack :: Int -> (a -> Flow a) -> a -> Flow a
 stack n f x = repeatM n f x
 -}
 
-chainM :: (Monad m) => [a -> m a] -> a -> m a
-chainM li x = foldl (>>=) (pure x) li
-
 stacks :: String -> Int -> (a -> Flow a) -> a -> Flow a
 stacks str n f = chainM (map (\i -> scope (str++(show i)) . f) [1..n])
 --stacks str n f x = chainM (\y -> scope (map ((str++).show) [1..n]) $ f y) x
