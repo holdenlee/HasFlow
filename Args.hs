@@ -25,41 +25,6 @@ instance Show Py where
 
 type PyArgs = M.Map String Py
 
-{-
-data HTrue
-
-data HFalse
-
-data HNone
-
-type family MakeFalse a where
-    MakeFalse HTrue = HFalse
-    MakeFalse HFalse = HFalse
-    MakeFalse HNone = HNone
-
-type family ArgPred a where
-    ArgPred Int = HTrue
-    ArgPred Float = HTrue
-    ArgPred String = HTrue
-    ArgPred [a] = MakeFalse (ArgPred a)
-    ArgPred a = HNone
-
-class Argable' a b where
-    toArg' :: b -> a  -> Py
-
-instance Argable' Int HTrue where
-    toArg' _ = PI
-
-instance Argable' Float HTrue where
-    toArg' _ = PF
-
-instance Argable' String HTrue where
-    toArg' _ = PCode
-
-instance Argable' [a] HFalse where
-    toArg' _ li = PL (map (toArg' (undefined::HTrue)) li)
--}
-
 class Argable a where
     toArg :: a -> Py
 

@@ -35,55 +35,43 @@ import Shape
 
 -- |
 -- == Tensors
-data TVal = F Float | L [TVal] | Ref String | Add TVal TVal | Mul TVal TVal
-          | TFun String [TVal] PyArgs ([[Polynomial]] -> Shape)
--- I Int
 
-instance Show TVal where
+--these isn't what I actually want... for demonstration purposes only...
+data TInt = TI Int | TIL [TInt] deriving Show
+
+data TFloat = TF Float | TFL [TFloat] deriving Show
+
+data T = TInt TInt | TFloat TFloat | Ref String | Add T T | Mul T T
+       | TFun String [T] PyArgs ([[Polynomial]] -> Shape)
+--for simplicity can merge Add, Mul into TFun
+
+instance Show T where
     show = \case
-              F i -> show i
-              L li -> printf "[%s]" (intercalate "," $ map show li)
+              TInt is -> show is
+              TFloat fs -> show fs
               Ref str -> str
               Add t1 t2 -> printf "(%s + %s)" (show t1) (show t2) 
               Mul t1 t2 -> printf "(%s * %s)" (show t1) (show t2) 
               TFun s li _ _ -> s ++ (show li)
 
-instance Additive.C TVal where
-    zero = F 0
+instance Additive.C T where
+    zero = TFloat (TF 0)
     (+) = Add
-    negate = Mul (F (-1))
+    negate = Mul (TFloat (TF (-1)))
     --ENeg
 
-instance Algebra.Ring.C TVal where
+instance Algebra.Ring.C T where
     (*) = Mul
-    fromInteger = F . Algebra.Ring.fromInteger
-
-data T = T TVal Shape
-
-val (T val _) = val
-shape (T _ sh) = sh
--- TODO: make this a lens
-
-instance Show T where
-    show (T x _) = show x
+    fromInteger = TFloat . TF . Algebra.Ring.fromInteger
 
 tryAdd :: Shape -> Shape -> Shape
 tryAdd s1 s2 = case (s1,s2) of
-                  (Just x, Just y) -> if x==y then Just x else Nothing --assume simplified already
+                  (Just x, Just y) -> if x==y then Just x else Nothing 
+                  --assume simplified already
                   _ -> Nothing
 
+--FIX: This isn't how matmul works in tensorflow.
 tryMul :: Shape -> Shape -> Shape
 tryMul s1 s2 = case (s1, s2) of
                  (Just li1, Just li2) -> if last li1 == head li2 then Just ((init li1) ++ (tail li2)) else Nothing
                  _ -> Nothing
-
---I'm abusing this so that I can use +/* notation.
-instance Additive.C T where
-    zero = T (F 0) (Just [fromInteger 1])
-    (T v1 s1) + (T v2 s2) = T (v1 + v2) (s1 `tryAdd` s2)  
-    negate (T v s) = T (Additive.negate v) s
-    --ENeg
-
-instance Algebra.Ring.C T where
-    (T v1 s1) * (T v2 s2) = T (v1 * v2) (s1 `tryMul` s2) 
-    fromInteger n = T (Algebra.Ring.fromInteger n) (Just [fromInteger 1])

@@ -142,6 +142,12 @@ mapReduce mf rf = concat . M.elems . M.mapWithKey rf . foldl
                                         Nothing -> Just [c]
                                         Just x -> Just (c:x)) b mp) M.empty
 
+removeAt :: Int -> [a] -> [a]
+removeAt n li = part1++(tail part2) where (part1,part2) = splitAt n li
+
+insertAt :: Int -> a -> [a] -> [a]
+insertAt n x li = part1++[x]++part2 where (part1,part2) = splitAt n li
+
 isInitialSegment :: Eq a => [a] -> [a] -> Bool
 isInitialSegment = isJust `c2` stripPrefix
 

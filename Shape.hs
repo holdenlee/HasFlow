@@ -36,6 +36,14 @@ class Shapable a where
 s :: (Shapable a) => a -> Shape
 s = toShape
 
+polyToInt :: Polynomial -> Maybe Integer
+polyToInt (Polynomial poly) = case poly of 
+                                [Monomial c []] -> Just c
+                                [] -> Just 0
+                                _ -> Nothing
+
+intFunc :: ([Integer] -> [Integer]) -> [Polynomial] -> Shape
+intFunc f p = fmap (map fromInteger . f) (mapM polyToInt p)
 
 instance Shapable [Int] where
     toShape x = Just (map (fromInteger . toInteger) x)
