@@ -104,6 +104,7 @@ compile' pd = \case
                   return (cur++following)
               Free (AddScope str next) -> do
                 let cur = (withIndent pd (printf "with tf.variable_scope(\"%s\"):" str))
+                tell [init cur]
                 following <- (compile' (pd & scopeList %~ (++[str])) next)
                 return (cur ++ following)
               Free (ExitScope next) -> compile' (pd & scopeList %~ init) next

@@ -53,6 +53,7 @@ $ multilayer_test2
 
 # x : [b_dim,n_dim]
 _a = get_variable("x", [b_dim,n_dim], var_type="placeholder")
+with tf.variable_scope("sigmoid_layer1"):
 # A : [n_dim,n_dim]
     _b = get_variable("A", [n_dim,n_dim], tf.truncated_normal_initializer(stddev=1e-2))
 # b : [n_dim]
@@ -64,6 +65,7 @@ _a = get_variable("x", [b_dim,n_dim], var_type="placeholder")
 # ((_a * _b) + _c) : [b_dim,n_dim]
 # tf.sigmoid(((_a * _b) + _c)) : [b_dim,n_dim]
     _d = tf.sigmoid(((_a * _b) + _c))
+with tf.variable_scope("sigmoid_layer2"):
 # A : [n_dim,n_dim]
     _e = get_variable("A", [n_dim,n_dim], tf.truncated_normal_initializer(stddev=1e-2))
 # b : [n_dim]
